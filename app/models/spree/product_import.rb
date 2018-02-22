@@ -36,7 +36,7 @@ class Spree::ProductImport < ActiveRecord::Base
     import_variant_data if variants_csv.present?
   end
 
-  handle_asynchronously :start_product_import
+  #handle_asynchronously :start_product_import ??????????????
 
   def import_product_data
     failed_import = []
