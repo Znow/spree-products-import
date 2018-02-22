@@ -40,7 +40,7 @@ class Spree::ProductImport < ActiveRecord::Base
 
   def import_product_data
     failed_import = []
-    CSV.foreach(products_csv.path, headers: true, header_converters: :symbol) do |product_data|
+    CSV.foreach(products_csv.path, headers: true, header_converters: :symbol, encoding: Encoding::UTF_8) do |product_data|
       unless import_product_from(product_data)
         failed_import << product_data
       end
@@ -55,7 +55,7 @@ class Spree::ProductImport < ActiveRecord::Base
 
   def import_variant_data
     failed_import = []
-    CSV.foreach(variants_csv.path, headers: true, header_converters: :symbol) do |variant_data|
+    CSV.foreach(variants_csv.path, headers: true, header_converters: :symbol, encoding: Encoding::UTF_8) do |variant_data|
       unless import_variant_from(variant_data)
         failed_import << variant_data
       end
