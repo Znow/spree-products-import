@@ -99,7 +99,9 @@ class Spree::ProductImport < ActiveRecord::Base
   end
 
   def set_missing_product_options(product, product_data_row)
-    product_data_row[:option_types].to_s.split(',').each do |option|
+    byebug
+    options = "package_count,item_unit,specifications,brand,product_url,supplier_url"
+    options.split(',').each do |option|
       option_name = option.strip
       option_type = Spree::OptionType.find_or_initialize_by(name: option_name)
       option_type.presentation = option_name unless option_type.presentation
@@ -107,6 +109,36 @@ class Spree::ProductImport < ActiveRecord::Base
       unless product.option_types.include? option_type
         product.option_types << option_type
       end
+    end
+    case product_data_row
+      when "PakkeAntal"
+            
+        #properties_hash["option_values"] = "package_count~>#{value}"
+      when "ItemUnit"
+        #properties_hash["option_types"] = ","
+        #properties_hash["option_types"] << "item_unit"
+        #properties_hash["option_values"] << ","
+        #properties_hash["option_values"] << "item_unit~>#{value}"
+      when "Specifications"
+        #properties_hash["option_types"] = ","
+        #properties_hash["option_types"] << "specifications"
+        #properties_hash["option_values"] << ","
+        #properties_hash["option_values"] << "specifications~>#{value}"
+      when "Brand"
+        #properties_hash["option_types"] = ","
+        #properties_hash["option_types"] << "brand"
+        #properties_hash["option_values"] << ","
+        #properties_hash["option_values"] << "brand~>#{value}"
+      when "ProductURL"
+        #properties_hash["option_types"] = ","
+        #properties_hash["option_types"] << "product_url"
+        #properties_hash["option_values"] << ","
+        #properties_hash["option_values"] << "product_url~>#{value}"
+      when "SupplierURL"
+        #properties_hash["option_types"] = ","
+        #properties_hash["option_types"] << "supplier_url"
+        #properties_hash["option_values"] << ","
+        #properties_hash["option_values"] << "supplier_url~>#{value}"
     end
   end
 
@@ -146,6 +178,7 @@ class Spree::ProductImport < ActiveRecord::Base
 
     data_row.each do |key, value|
       if copieable_attributes.include? key
+        #properties_hash["option_types"] = "package_count,item_unit,specifications,brand,product_url,supplier_url"
         case key
           when "DisplayName"
             properties_hash["name"] = value
@@ -164,14 +197,33 @@ class Spree::ProductImport < ActiveRecord::Base
             properties_hash["weight"] = value.gsub(',','.')
           # Product Properties
           when "PakkeAntal"
-            properties_hash["option_types"] = "package_count"
-            #properties_hash["package_count"] = value
+            
+            #properties_hash["option_values"] = "package_count~>#{value}"
+          when "ItemUnit"
+            #properties_hash["option_types"] = ","
+            #properties_hash["option_types"] << "item_unit"
+            #properties_hash["option_values"] << ","
+            #properties_hash["option_values"] << "item_unit~>#{value}"
           when "Specifications"
-            #properties_hash["specifications"] = value
+            #properties_hash["option_types"] = ","
+            #properties_hash["option_types"] << "specifications"
+            #properties_hash["option_values"] << ","
+            #properties_hash["option_values"] << "specifications~>#{value}"
           when "Brand"
-            #properties_hash["brand"] = value
+            #properties_hash["option_types"] = ","
+            #properties_hash["option_types"] << "brand"
+            #properties_hash["option_values"] << ","
+            #properties_hash["option_values"] << "brand~>#{value}"
           when "ProductURL"
-            #properties_hash[""]
+            #properties_hash["option_types"] = ","
+            #properties_hash["option_types"] << "product_url"
+            #properties_hash["option_values"] << ","
+            #properties_hash["option_values"] << "product_url~>#{value}"
+          when "SupplierURL"
+            #properties_hash["option_types"] = ","
+            #properties_hash["option_types"] << "supplier_url"
+            #properties_hash["option_values"] << ","
+            #properties_hash["option_values"] << "supplier_url~>#{value}"
         end
         properties_hash["available_on"] = Time.now.utc
         #properties_hash["shipping_category"] = 1
@@ -207,8 +259,6 @@ class Spree::ProductImport < ActiveRecord::Base
       end
     end
   end
-
-  
 
   def add_images(model_obj, image_dir)
     return unless image_dir
