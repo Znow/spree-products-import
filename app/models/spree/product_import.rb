@@ -152,14 +152,26 @@ class Spree::ProductImport < ActiveRecord::Base
             properties_hash["meta_title"] = value
             properties_hash["slug"] = value.parameterize
           when "Nettopris"
-            properties_hash["cost_price"] = value.gsub(',','.')#.to_f / 100
+            properties_hash["cost_price"] = value.gsub(',','.')
           when "Bruttopris"
-            properties_hash["price"] = value.gsub(',','.')#.to_f / 100
+            properties_hash["price"] = value.gsub(',','.')
           when "LangProduktBeskrivelse"
             properties_hash["description"] = value
             properties_hash["meta_description"] = value
           when "SupplierProductNumber"
             properties_hash["sku"] = value
+          when "Weight"
+            properties_hash["weight"] = value.gsub(',','.')
+          # Product Properties
+          when "PakkeAntal"
+            properties_hash["option_types"] = "package_count"
+            #properties_hash["package_count"] = value
+          when "Specifications"
+            #properties_hash["specifications"] = value
+          when "Brand"
+            #properties_hash["brand"] = value
+          when "ProductURL"
+            #properties_hash[""]
         end
         properties_hash["available_on"] = Time.now.utc
         #properties_hash["shipping_category"] = 1
