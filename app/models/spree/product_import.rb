@@ -151,8 +151,12 @@ class Spree::ProductImport < ActiveRecord::Base
     #product.taxons.find_or_create_by!(name: product_data_row["Kategori3"])
     #product.taxons.find_or_create_by!(name: product_data_row["Kategori4"])
     #end
+    first_level = Spree::Taxon.find_by(name: product_data_row["Kategori1"])
+    second_level = first_level.children.find_by(name: product_data_row["Kategori2"])
+    third_level = first_level.children.find_by(name: product_data_row["Kategori3"])
+    fourth_level = first_level.children.find_by(name: product_data_row["Kategori4"])
     
-    taxons = [Spree::Taxon.find_by(name: product_data_row["Kategori1"]), Spree::Taxon.find_by(name: product_data_row["Kategori2"]), Spree::Taxon.find_by(name: product_data_row["Kategori3"]), Spree::Taxon.find_by(name: product_data_row["Kategori4"])]
+    taxons = [first_level, second_level, third_level, fourth_level]
     
     product.assign_attributes(taxons: taxons)
   end
