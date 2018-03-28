@@ -143,9 +143,18 @@ class Spree::ProductImport < ActiveRecord::Base
   end
 
   def add_taxons(product, product_data_row)
-    product_data_row[:taxons].to_s.split(',').each do |taxon|
-      product.taxons.find_or_create_by!(name: taxon)
-    end
+    byebug
+    #product_data_row[:taxons].to_s.split(',').each do |taxon|
+    #product_data_row["Kategori4"].to_s.each do |taxon|
+    #product.taxons.find_or_create_by!(name: product_data_row["Kategori1"])
+    #product.taxons.find_or_create_by!(name: product_data_row["Kategori2"])
+    #product.taxons.find_or_create_by!(name: product_data_row["Kategori3"])
+    #product.taxons.find_or_create_by!(name: product_data_row["Kategori4"])
+    #end
+    
+    taxons = [Spree::Taxon.find_by(name: product_data_row["Kategori1"]), Spree::Taxon.find_by(name: product_data_row["Kategori2"]), Spree::Taxon.find_by(name: product_data_row["Kategori3"]), Spree::Taxon.find_by(name: product_data_row["Kategori4"])]
+    
+    product.assign_attributes(taxons: taxons)
   end
 
   def create_or_update_variant(product, variant_data_row)
