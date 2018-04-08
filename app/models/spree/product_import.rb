@@ -38,7 +38,7 @@ class Spree::ProductImport < ActiveRecord::Base
     import_variant_data if variants_csv.present?
   end
 
-  #handle_asynchronously :start_product_import# ??????????????
+#  handle_asynchronously :start_product_import# ??????????????
 
   def import_product_data
     #byebug
@@ -89,7 +89,7 @@ class Spree::ProductImport < ActiveRecord::Base
   end
 
   def create_or_update_product(product_data_row)
-    #byebug
+    byebug
     product_properties = build_properties_hash(product_data_row, IMPORTABLE_PRODUCT_FIELDS, RELATED_PRODUCT_FIELDS)
     product_properties[:tax_category] = Spree::TaxCategory.first#find_or_create_by!(name: product_properties[:tax_category])
     product_properties[:shipping_category] = Spree::ShippingCategory.first#.find_or_create_by!(name: product_properties[:shipping_category])
@@ -112,49 +112,41 @@ class Spree::ProductImport < ActiveRecord::Base
     end
     case product_data_row
       when "PakkeAntal"
-            
-        #properties_hash["option_values"] = "package_count~>#{value}"
+        properties_hash["option_types"] = "package_count"    
+        properties_hash["option_values"] = "package_count~>#{value}"
       when "ItemUnit"
         #properties_hash["option_types"] = ","
-        #properties_hash["option_types"] << "item_unit"
-        #properties_hash["option_values"] << ","
-        #properties_hash["option_values"] << "item_unit~>#{value}"
+        properties_hash["option_types"] = "item_unit"
+        #properties_hash["option_values"] = ","
+        properties_hash["option_values"] = "item_unit~>#{value}"
       when "Specifications"
         #properties_hash["option_types"] = ","
-        #properties_hash["option_types"] << "specifications"
-        #properties_hash["option_values"] << ","
-        #properties_hash["option_values"] << "specifications~>#{value}"
+        properties_hash["option_types"] = "specifications"
+        #properties_hash["option_values"] = ","
+        properties_hash["option_values"] = "specifications~>#{value}"
       when "Brand"
         #properties_hash["option_types"] = ","
-        #properties_hash["option_types"] << "brand"
-        #properties_hash["option_values"] << ","
-        #properties_hash["option_values"] << "brand~>#{value}"
+        properties_hash["option_types"] = "brand"
+        #properties_hash["option_values"] = ","
+        properties_hash["option_values"] = "brand~>#{value}"
       when "ProductURL"
         #properties_hash["option_types"] = ","
-        #properties_hash["option_types"] << "product_url"
-        #properties_hash["option_values"] << ","
-        #properties_hash["option_values"] << "product_url~>#{value}"
+        properties_hash["option_types"] = "product_url"
+        #properties_hash["option_values"] = ","
+        properties_hash["option_values"] = "product_url~>#{value}"
       when "SupplierURL"
         #properties_hash["option_types"] = ","
-        #properties_hash["option_types"] << "supplier_url"
-        #properties_hash["option_values"] << ","
-        #properties_hash["option_values"] << "supplier_url~>#{value}"
+        properties_hash["option_types"] = "supplier_url"
+        #properties_hash["option_values"] = ","
+        properties_hash["option_values"] = "supplier_url~>#{value}"
     end
   end
 
   def add_taxons(product, product_data_row)
-    byebug
-    #product_data_row[:taxons].to_s.split(',').each do |taxon|
-    #product_data_row["Kategori4"].to_s.each do |taxon|
-    #product.taxons.find_or_create_by!(name: product_data_row["Kategori1"])
-    #product.taxons.find_or_create_by!(name: product_data_row["Kategori2"])
-    #product.taxons.find_or_create_by!(name: product_data_row["Kategori3"])
-    #product.taxons.find_or_create_by!(name: product_data_row["Kategori4"])
-    #end
     first_level = Spree::Taxon.find_by(name: product_data_row["Kategori1"])
     second_level = first_level.children.find_by(name: product_data_row["Kategori2"])
-    third_level = first_level.children.find_by(name: product_data_row["Kategori3"])
-    fourth_level = first_level.children.find_by(name: product_data_row["Kategori4"])
+    third_level = second_level.children.find_by(name: product_data_row["Kategori3"])
+    fourth_level = third_level.children.find_by(name: product_data_row["Kategori4"])
     
     taxons = [first_level, second_level, third_level, fourth_level]
     
@@ -185,7 +177,7 @@ class Spree::ProductImport < ActiveRecord::Base
   end
   
   def build_properties_hash(data_row, attributes_to_read, related_attr)
-    #byebug
+    byebug
     properties_hash = {}
     copieable_attributes = (attributes_to_read - related_attr)
 
@@ -204,46 +196,45 @@ class Spree::ProductImport < ActiveRecord::Base
           when "LangProduktBeskrivelse"
             properties_hash["description"] = value
             properties_hash["meta_description"] = value
-          when "SupplierProductNumber"
+          when "EAN"
             properties_hash["sku"] = value
           when "Weight"
             properties_hash["weight"] = value.gsub(',','.')
+            
           # Product Properties
           when "PakkeAntal"
-            
-            #properties_hash["option_values"] = "package_count~>#{value}"
+            properties_hash["option_values"] = "package_count~>#{value}"
           when "ItemUnit"
             #properties_hash["option_types"] = ","
-            #properties_hash["option_types"] << "item_unit"
-            #properties_hash["option_values"] << ","
-            #properties_hash["option_values"] << "item_unit~>#{value}"
+            properties_hash["option_types"] = "item_unit"
+            #properties_hash["option_values"] = ","
+            properties_hash["option_values"] = "item_unit~>#{value}"
           when "Specifications"
             #properties_hash["option_types"] = ","
-            #properties_hash["option_types"] << "specifications"
-            #properties_hash["option_values"] << ","
-            #properties_hash["option_values"] << "specifications~>#{value}"
+            properties_hash["option_types"] = "specifications"
+            #properties_hash["option_values"] = ","
+            properties_hash["option_values"] = "specifications~>#{value}"
           when "Brand"
             #properties_hash["option_types"] = ","
-            #properties_hash["option_types"] << "brand"
-            #properties_hash["option_values"] << ","
-            #properties_hash["option_values"] << "brand~>#{value}"
+            properties_hash["option_types"] = "brand"
+            #properties_hash["option_values"] = ","
+            properties_hash["option_values"] = "brand~>#{value}"
           when "ProductURL"
             #properties_hash["option_types"] = ","
-            #properties_hash["option_types"] << "product_url"
-            #properties_hash["option_values"] << ","
-            #properties_hash["option_values"] << "product_url~>#{value}"
+            properties_hash["option_types"] = "product_url"
+            #properties_hash["option_values"] = ","
+            properties_hash["option_values"] = "product_url~>#{value}"
           when "SupplierURL"
             #properties_hash["option_types"] = ","
-            #properties_hash["option_types"] << "supplier_url"
-            #properties_hash["option_values"] << ","
-            #properties_hash["option_values"] << "supplier_url~>#{value}"
+            properties_hash["option_types"] = "supplier_url"
+            #properties_hash["option_values"] = ","
+            properties_hash["option_values"] = "supplier_url~>#{value}"
         end
         properties_hash["available_on"] = Time.now.utc
         #properties_hash["shipping_category"] = 1
         properties_hash["promotionable"] = true
         #properties_hash["tax_category"] = 
         #properties_hash["taxons"] = "tax1, tax2, tax3"
-        
       end
     end
     properties_hash
