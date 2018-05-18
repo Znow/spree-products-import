@@ -38,7 +38,7 @@ class Spree::ProductImport < ActiveRecord::Base
     import_variant_data if variants_csv.present?
   end
 
-#  handle_asynchronously :start_product_import# ??????????????
+  handle_asynchronously :start_product_import# ??????????????
 
   def import_product_data
     #byebug
@@ -89,7 +89,7 @@ class Spree::ProductImport < ActiveRecord::Base
   end
 
   def create_or_update_product(product_data_row)
-    byebug
+    #byebug
     product_properties = build_properties_hash(product_data_row, IMPORTABLE_PRODUCT_FIELDS, RELATED_PRODUCT_FIELDS)
     product_properties[:tax_category] = Spree::TaxCategory.first#find_or_create_by!(name: product_properties[:tax_category])
     product_properties[:shipping_category] = Spree::ShippingCategory.first#.find_or_create_by!(name: product_properties[:shipping_category])
@@ -99,7 +99,7 @@ class Spree::ProductImport < ActiveRecord::Base
   end
 
   def set_missing_product_options(product, product_data_row)
-    byebug
+    #byebug
     options = "package_count,item_unit,specifications,brand,product_url,supplier_url"
     options.split(',').each do |option|
       option_name = option.strip
@@ -177,7 +177,7 @@ class Spree::ProductImport < ActiveRecord::Base
   end
   
   def build_properties_hash(data_row, attributes_to_read, related_attr)
-    byebug
+    #byebug
     properties_hash = {}
     copieable_attributes = (attributes_to_read - related_attr)
 
