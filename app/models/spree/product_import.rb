@@ -19,14 +19,15 @@ class Spree::ProductImport < ActiveRecord::Base
   OPTIONS_SEPERATOR = '->'
 
   # attachments
-  has_attached_file :variants_csv
+  #has_attached_file :variants_csv
   has_attached_file :products_csv
 
   # validations
-  validates_attachment :variants_csv, :products_csv, content_type: { content_type: ["text/csv", "text/plain"] }
+  #validates_attachment :variants_csv, :products_csv, content_type: { content_type: ["text/csv", "text/plain"] }
+  validates_attachment :products_csv, content_type: { content_type: ["text/csv", "text/plain"] }
 
-  validates :variants_csv, presence: true, unless: -> { products_csv.present? }
-  validates :products_csv, presence: true, unless: -> { variants_csv.present? }
+  #validates :variants_csv, presence: true, unless: -> { products_csv.present? }
+  validates :products_csv, presence: true#, unless: -> { variants_csv.present? }
 
   # callbacks
   after_commit :start_product_import
@@ -35,13 +36,13 @@ class Spree::ProductImport < ActiveRecord::Base
 
   def start_product_import
     import_product_data if products_csv.present?
-    import_variant_data if variants_csv.present?
+    #import_variant_data if variants_csv.present?
   end
 
   #handle_asynchronously :start_product_import# ??????????????
 
   def import_product_data
-    #byebug
+    byebug
     failed_import = []
     Spree::Product.destroy_all if Spree::Product.all.any?
     #CSV.foreach(products_csv.path, headers: true, header_converters: :symbol, encoding: Encoding::UTF_8, col_sep: ';') do |product_data|
@@ -89,18 +90,54 @@ class Spree::ProductImport < ActiveRecord::Base
   end
 
   def create_or_update_product(product_data_row)
-    #byebug
     product_properties = build_properties_hash(product_data_row, IMPORTABLE_PRODUCT_FIELDS, RELATED_PRODUCT_FIELDS)
     product_properties[:tax_category] = Spree::TaxCategory.first#find_or_create_by!(name: product_properties[:tax_category])
     product_properties[:shipping_category] = Spree::ShippingCategory.first#.find_or_create_by!(name: product_properties[:shipping_category])
+    #product = Spree::Product.find_or_initialize_by(slug: product_properties[:slug])
     product = Spree::Product.find_or_initialize_by(slug: product_properties[:slug])
+    byebug
     product.update!(product_properties)
     product
   end
+  
+  def build_properties_hash(data_row, attributes_to_read, related_attr)
+    #byebug
+    properties_hash = {}
+    copieable_attributes = (attributes_to_read - related_attr)
+    
+    data_row.each do |key, value|
+      if copieable_attributes.include? key
+        case key
+          when "DisplayName"
+            properties_hash[:name] = value
+            properties_hash[:meta_title] = value
+            properties_hash[:slug] = value.parameterize
+          when "Nettopris"
+            properties_hash[:cost_price] = value.gsub(',','.')
+          when "Bruttopris"
+            properties_hash[:price] = value.gsub(',','.')
+          when "LangProduktBeskrivelse"
+            properties_hash[:description] = value
+            properties_hash[:meta_description] = value
+          when "EAN"
+            properties_hash[:sku] = value
+          when "Weight"
+            properties_hash[:weight] = value.gsub(',','.')
+        end
+        
+      end
+    end
+    properties_hash[:available_on] = Time.now.utc.to_s
+    #properties_hash["shipping_category"] = 1
+    properties_hash[:promotionable] = true
+    #properties_hash["tax_category"] = 
+    #properties_hash["taxons"] = "tax1, tax2, tax3"
+    properties_hash
+  end
 
   def set_missing_product_options(product, product_data_row)
-    #byebug
-    options = "package_count,item_unit,specifications,brand,product_url,supplier_url"
+    byebug
+    options = "item_unit,package_count,specifications,brand,product_url,supplier_url"
     options.split(',').each do |option|
       option_name = option.strip
       option_type = Spree::OptionType.find_or_initialize_by(name: option_name)
@@ -111,34 +148,24 @@ class Spree::ProductImport < ActiveRecord::Base
       end
     end
     case product_data_row
-      when "PakkeAntal"
-        properties_hash["option_types"] = "package_count"    
-        properties_hash["option_values"] = "package_count~>#{value}"
+      # Product Properties in correct order from CSV
       when "ItemUnit"
-        #properties_hash["option_types"] = ","
-        properties_hash["option_types"] = "item_unit"
-        #properties_hash["option_values"] = ","
         properties_hash["option_values"] = "item_unit~>#{value}"
-      when "Specifications"
-        #properties_hash["option_types"] = ","
-        properties_hash["option_types"] = "specifications"
-        #properties_hash["option_values"] = ","
-        properties_hash["option_values"] = "specifications~>#{value}"
-      when "Brand"
-        #properties_hash["option_types"] = ","
-        properties_hash["option_types"] = "brand"
-        #properties_hash["option_values"] = ","
-        properties_hash["option_values"] = "brand~>#{value}"
-      when "ProductURL"
-        #properties_hash["option_types"] = ","
-        properties_hash["option_types"] = "product_url"
-        #properties_hash["option_values"] = ","
-        properties_hash["option_values"] = "product_url~>#{value}"
       when "SupplierURL"
-        #properties_hash["option_types"] = ","
-        properties_hash["option_types"] = "supplier_url"
-        #properties_hash["option_values"] = ","
-        properties_hash["option_values"] = "supplier_url~>#{value}"
+        properties_hash["option_values"] << ","
+        properties_hash["option_values"] << "supplier_url~>#{value}"
+      when "ProductURL"
+        properties_hash["option_values"] << ","
+        properties_hash["option_values"] << "product_url~>#{value}"
+      when "PakkeAntal"
+        properties_hash["option_values"] << ","
+        properties_hash["option_values"] << "package_count~>#{value}"
+      when "Specifications"
+        properties_hash["option_values"] << ","
+        properties_hash["option_values"] << "specifications~>#{value}"
+      when "Brand"
+        properties_hash["option_values"] << ","
+        properties_hash["option_values"] << "brand~>#{value}"
     end
   end
 
@@ -175,70 +202,6 @@ class Spree::ProductImport < ActiveRecord::Base
       end
     end
   end
-  
-  def build_properties_hash(data_row, attributes_to_read, related_attr)
-    #byebug
-    properties_hash = {}
-    copieable_attributes = (attributes_to_read - related_attr)
-
-    data_row.each do |key, value|
-      if copieable_attributes.include? key
-        #properties_hash["option_types"] = "package_count,item_unit,specifications,brand,product_url,supplier_url"
-        case key
-          when "DisplayName"
-            properties_hash["name"] = value
-            properties_hash["meta_title"] = value
-            properties_hash["slug"] = value.parameterize
-          when "Nettopris"
-            properties_hash["cost_price"] = value.gsub(',','.')
-          when "Bruttopris"
-            properties_hash["price"] = value.gsub(',','.')
-          when "LangProduktBeskrivelse"
-            properties_hash["description"] = value
-            properties_hash["meta_description"] = value
-          when "EAN"
-            properties_hash["sku"] = value
-          when "Weight"
-            properties_hash["weight"] = value.gsub(',','.')
-            
-          # Product Properties
-          when "PakkeAntal"
-            properties_hash["option_values"] = "package_count~>#{value}"
-          when "ItemUnit"
-            #properties_hash["option_types"] = ","
-            properties_hash["option_types"] = "item_unit"
-            #properties_hash["option_values"] = ","
-            properties_hash["option_values"] = "item_unit~>#{value}"
-          when "Specifications"
-            #properties_hash["option_types"] = ","
-            properties_hash["option_types"] = "specifications"
-            #properties_hash["option_values"] = ","
-            properties_hash["option_values"] = "specifications~>#{value}"
-          when "Brand"
-            #properties_hash["option_types"] = ","
-            properties_hash["option_types"] = "brand"
-            #properties_hash["option_values"] = ","
-            properties_hash["option_values"] = "brand~>#{value}"
-          when "ProductURL"
-            #properties_hash["option_types"] = ","
-            properties_hash["option_types"] = "product_url"
-            #properties_hash["option_values"] = ","
-            properties_hash["option_values"] = "product_url~>#{value}"
-          when "SupplierURL"
-            #properties_hash["option_types"] = ","
-            properties_hash["option_types"] = "supplier_url"
-            #properties_hash["option_values"] = ","
-            properties_hash["option_values"] = "supplier_url~>#{value}"
-        end
-        properties_hash["available_on"] = Time.now.utc
-        #properties_hash["shipping_category"] = 1
-        properties_hash["promotionable"] = true
-        #properties_hash["tax_category"] = 
-        #properties_hash["taxons"] = "tax1, tax2, tax3"
-      end
-    end
-    properties_hash
-  end
 
   def import_variant_from(variant_data_row)
     begin
@@ -264,6 +227,8 @@ class Spree::ProductImport < ActiveRecord::Base
     end
   end
 
+
+  ##### KOMMET HER TIL!!!
   def add_images(model_obj, image_dir)
     return unless image_dir
     load_images(image_dir).each do |image_file|
