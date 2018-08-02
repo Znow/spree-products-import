@@ -1,4 +1,5 @@
 require 'csv'
+require "down"
 
 class Spree::ProductImport < ActiveRecord::Base
 
@@ -80,7 +81,7 @@ class Spree::ProductImport < ActiveRecord::Base
         product = create_or_update_product(product_data_row)
         set_missing_product_options(product, product_data_row)
         add_taxons(product, product_data_row)
-        add_images(product, product_data_row[:images])
+        add_images(product, product_data_row["Billede"])
       end
     rescue Exception
       false
@@ -93,9 +94,7 @@ class Spree::ProductImport < ActiveRecord::Base
     product_properties = build_properties_hash(product_data_row, IMPORTABLE_PRODUCT_FIELDS, RELATED_PRODUCT_FIELDS)
     product_properties[:tax_category] = Spree::TaxCategory.first#find_or_create_by!(name: product_properties[:tax_category])
     product_properties[:shipping_category] = Spree::ShippingCategory.first#.find_or_create_by!(name: product_properties[:shipping_category])
-    #product = Spree::Product.find_or_initialize_by(slug: product_properties[:slug])
     product = Spree::Product.find_or_initialize_by(slug: product_properties[:slug])
-    byebug
     product.update!(product_properties)
     product
   end
@@ -136,8 +135,8 @@ class Spree::ProductImport < ActiveRecord::Base
   end
 
   def set_missing_product_options(product, product_data_row)
-    byebug
-    options = "item_unit,package_count,specifications,brand,product_url,supplier_url"
+    #byebug
+    options = "item_unit,package_count,specifications,brand,product_url,supplier_url,image_url"
     options.split(',').each do |option|
       option_name = option.strip
       option_type = Spree::OptionType.find_or_initialize_by(name: option_name)
@@ -166,6 +165,9 @@ class Spree::ProductImport < ActiveRecord::Base
       when "Brand"
         properties_hash["option_values"] << ","
         properties_hash["option_values"] << "brand~>#{value}"
+      when "Billede"
+        properties_hash["option_values"] << ","
+        properties_hash["option_values"] << "image_url~>#{value}"
     end
   end
 
@@ -230,20 +232,25 @@ class Spree::ProductImport < ActiveRecord::Base
 
   ##### KOMMET HER TIL!!!
   def add_images(model_obj, image_dir)
+    #byebug
     return unless image_dir
-    load_images(image_dir).each do |image_file|
-      model_obj.images << Spree::Image.create(attachment: File.new("#{ image_dir }/#{ image_file }", 'r'))
-    end
+    
+    tempfile = Down.download(image_dir)
+    model_obj.images << Spree::Image.create(attachment: tempfile)
+    
+    #load_images(image_dir).each do |image_file|
+    #  model_obj.images << Spree::Image.create(attachment: File.new("#{ image_dir }/#{ image_file }", 'r'))
+    #end
   end
 
-  def load_images(image_dir)
-    if Dir.exists?(image_dir)
-      Dir.open(image_dir).entries.select do |entry|
-        IMAGE_EXTENSIONS.include? File.extname(entry).downcase
-      end
-    else
-      raise 'Image directory not found'
-    end
-  end
+  # def load_images(image_dir)
+  #   if Dir.exists?(image_dir)
+  #     Dir.open(image_dir).entries.select do |entry|
+  #       IMAGE_EXTENSIONS.include? File.extname(entry).downcase
+  #     end
+  #   else
+  #     raise 'Image directory not found'
+  #   end
+  # end
 
 end
