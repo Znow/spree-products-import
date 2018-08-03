@@ -20,15 +20,12 @@ class Spree::ProductImport < ActiveRecord::Base
   OPTIONS_SEPERATOR = '->'
 
   # attachments
-  #has_attached_file :variants_csv
   has_attached_file :products_csv
 
   # validations
-  #validates_attachment :variants_csv, :products_csv, content_type: { content_type: ["text/csv", "text/plain"] }
   validates_attachment :products_csv, content_type: { content_type: ["text/csv", "text/plain"] }
 
-  #validates :variants_csv, presence: true, unless: -> { products_csv.present? }
-  validates :products_csv, presence: true#, unless: -> { variants_csv.present? }
+  validates :products_csv, presence: true
 
   # callbacks
   after_commit :start_product_import
@@ -37,41 +34,17 @@ class Spree::ProductImport < ActiveRecord::Base
 
   def start_product_import
     import_product_data if products_csv.present?
-    #import_variant_data if variants_csv.present?
   end
 
   #handle_asynchronously :start_product_import# ??????????????
 
   def import_product_data
-    byebug
     failed_import = []
     Spree::Product.destroy_all if Spree::Product.all.any?
-    #CSV.foreach(products_csv.path, headers: true, header_converters: :symbol, encoding: Encoding::UTF_8, col_sep: ';') do |product_data|
     CSV.foreach(products_csv.path, encoding: 'iso-8859-1', headers: true, col_sep: ';') do |product_data|
       unless import_product_from(product_data)
         failed_import << product_data
       end
-    end
-    #if failed_import.empty?
-    #  Spree::ProductImportMailer.import_data_success_email(id, "products_csv").deliver_later
-    #else
-    #  failed_import_csv = build_csv_from_failed_import_list(failed_import)
-    #  Spree::ProductImportMailer.import_data_failure_email(id, "products_csv", failed_import_csv).deliver_later
-    #end
-  end
-
-  def import_variant_data
-    failed_import = []
-    CSV.foreach(variants_csv.path, headers: true, header_converters: :symbol, encoding: Encoding::UTF_8) do |variant_data|
-      unless import_variant_from(variant_data)
-        failed_import << variant_data
-      end
-    end
-    if failed_import.empty?
-      Spree::ProductImportMailer.import_data_success_email(id, "variants_csv").deliver_later
-    else
-      failed_import_csv = build_csv_from_failed_import_list(failed_import)
-      Spree::ProductImportMailer.import_data_failure_email(id, "variants_csv", failed_import_csv).deliver_later
     end
   end
   
@@ -79,9 +52,9 @@ class Spree::ProductImport < ActiveRecord::Base
     begin
       ActiveRecord::Base.transaction do
         product = create_or_update_product(product_data_row)
-        set_missing_product_options(product, product_data_row)
+        set_missing_product_properties(product, product_data_row)
         add_taxons(product, product_data_row)
-        add_images(product, product_data_row["Billede"])
+        #add_images(product, product_data_row["Billede"])
       end
     rescue Exception
       false
@@ -92,82 +65,69 @@ class Spree::ProductImport < ActiveRecord::Base
 
   def create_or_update_product(product_data_row)
     product_properties = build_properties_hash(product_data_row, IMPORTABLE_PRODUCT_FIELDS, RELATED_PRODUCT_FIELDS)
-    product_properties[:tax_category] = Spree::TaxCategory.first#find_or_create_by!(name: product_properties[:tax_category])
-    product_properties[:shipping_category] = Spree::ShippingCategory.first#.find_or_create_by!(name: product_properties[:shipping_category])
+    product_properties[:tax_category] = Spree::TaxCategory.first
+    product_properties[:shipping_category] = Spree::ShippingCategory.first
     product = Spree::Product.find_or_initialize_by(slug: product_properties[:slug])
     product.update!(product_properties)
     product
   end
   
   def build_properties_hash(data_row, attributes_to_read, related_attr)
-    #byebug
     properties_hash = {}
     copieable_attributes = (attributes_to_read - related_attr)
     
     data_row.each do |key, value|
       if copieable_attributes.include? key
         case key
-          when "DisplayName"
-            properties_hash[:name] = value
-            properties_hash[:meta_title] = value
-            properties_hash[:slug] = value.parameterize
-          when "Nettopris"
-            properties_hash[:cost_price] = value.gsub(',','.')
-          when "Bruttopris"
-            properties_hash[:price] = value.gsub(',','.')
-          when "LangProduktBeskrivelse"
-            properties_hash[:description] = value
-            properties_hash[:meta_description] = value
-          when "EAN"
-            properties_hash[:sku] = value
-          when "Weight"
-            properties_hash[:weight] = value.gsub(',','.')
+        when "DisplayName"
+          properties_hash[:name] = value
+          properties_hash[:meta_title] = value
+          properties_hash[:slug] = value.parameterize
+        when "Nettopris"
+          properties_hash[:cost_price] = value.gsub(',','.')
+        when "Bruttopris"
+          properties_hash[:price] = value.gsub(',','.')
+        when "LangProduktBeskrivelse"
+          properties_hash[:description] = value
+          properties_hash[:meta_description] = value
+        when "EAN"
+          properties_hash[:sku] = value
+        when "Weight"
+          properties_hash[:weight] = value.gsub(',','.')
         end
-        
       end
     end
     properties_hash[:available_on] = Time.now.utc.to_s
-    #properties_hash["shipping_category"] = 1
     properties_hash[:promotionable] = true
-    #properties_hash["tax_category"] = 
-    #properties_hash["taxons"] = "tax1, tax2, tax3"
+    
     properties_hash
   end
-
-  def set_missing_product_options(product, product_data_row)
-    #byebug
-    options = "item_unit,package_count,specifications,brand,product_url,supplier_url,image_url"
-    options.split(',').each do |option|
-      option_name = option.strip
-      option_type = Spree::OptionType.find_or_initialize_by(name: option_name)
-      option_type.presentation = option_name unless option_type.presentation
-      option_type.save!
-      unless product.option_types.include? option_type
-        product.option_types << option_type
-      end
-    end
-    case product_data_row
+  
+  def set_missing_product_properties(product, product_data_row)
+    byebug
+    product_data_row.each do |key, value|
+      case key
       # Product Properties in correct order from CSV
       when "ItemUnit"
-        properties_hash["option_values"] = "item_unit~>#{value}"
+        byebug
+        property = Spree::Property.find_or_create_by!(name: "item_unit", presentation: "Item Unit")
+        product_property = Spree::ProductProperty.find_or_create_by!(value: value, product: product, property: property)
       when "SupplierURL"
-        properties_hash["option_values"] << ","
-        properties_hash["option_values"] << "supplier_url~>#{value}"
+        property = Spree::Property.find_or_create_by!(name: "supplier_url", presentation: "Supplier URL")
+        product_property = Spree::ProductProperty.find_or_create_by!(value: value, product: product, property: property)
       when "ProductURL"
-        properties_hash["option_values"] << ","
-        properties_hash["option_values"] << "product_url~>#{value}"
+        property = Spree::Property.find_or_create_by!(name: "product_url", presentation: "Product URL")
+        product_property = Spree::ProductProperty.find_or_create_by!(value: value, product: product, property: property)
       when "PakkeAntal"
-        properties_hash["option_values"] << ","
-        properties_hash["option_values"] << "package_count~>#{value}"
+        property = Spree::Property.find_or_create_by!(name: "package_count", presentation: "Package Count")
+        product_property = Spree::ProductProperty.find_or_create_by!(value: value, product: product, property: property)
       when "Specifications"
-        properties_hash["option_values"] << ","
-        properties_hash["option_values"] << "specifications~>#{value}"
+        property = Spree::Property.find_or_create_by!(name: "specifications", presentation: "Specifications")
+        product_property = Spree::ProductProperty.find_or_create_by!(value: value, product: product, property: property)
       when "Brand"
-        properties_hash["option_values"] << ","
-        properties_hash["option_values"] << "brand~>#{value}"
-      when "Billede"
-        properties_hash["option_values"] << ","
-        properties_hash["option_values"] << "image_url~>#{value}"
+        property = Spree::Property.find_or_create_by!(name: "brand", presentation: "Brand")
+        product_property = Spree::ProductProperty.find_or_create_by!(value: value, product: product, property: property)
+      end
     end
   end
 
@@ -182,45 +142,6 @@ class Spree::ProductImport < ActiveRecord::Base
     product.assign_attributes(taxons: taxons)
   end
 
-  def create_or_update_variant(product, variant_data_row)
-    variant_properties = build_properties_hash(variant_data_row, IMPORTABLE_VARIANT_FIELDS, RELATED_VARIANT_FIELDS)
-    variant_properties[:tax_category] = Spree::TaxCategory.find_or_create_by!(name: variant_properties[:tax_category])
-    variant = product.variants.find_or_initialize_by(sku: variant_properties[:sku])
-    variant.update!(variant_properties)
-    variant
-  end
-
-  def set_variant_options(variant, product, variant_data_row)
-    variant_data_row[:option_values].to_s.split(',').each do |option_pair|
-      option_name, option_value = option_pair.split(OPTIONS_SEPERATOR)
-      option_type = product.option_types.find_by(name: option_name)
-      option_value = Spree::OptionValue.find_or_initialize_by(name: option_value, option_type: option_type)
-      unless option_value.presentation
-        option_value.presentation = option_value
-      end
-      option_value.save!
-      unless variant.option_values.include? option_value
-        variant.option_values << option_value
-      end
-    end
-  end
-
-  def import_variant_from(variant_data_row)
-    begin
-      ActiveRecord::Base.transaction do
-        product = Spree::Product.find_by(slug: variant_data_row[:slug])
-        raise 'product does not exist' unless product
-        variant = create_or_update_variant(product, variant_data_row)
-        set_variant_options(variant, product, variant_data_row)
-        add_images(variant, variant_data_row[:images])
-      end
-    rescue Exception
-      false
-    else
-      true
-    end
-  end
-
   def build_csv_from_failed_import_list(failed_import)
     CSV.generate do |csv|
       failed_import.each do |data_row|
@@ -229,14 +150,25 @@ class Spree::ProductImport < ActiveRecord::Base
     end
   end
 
-
   ##### KOMMET HER TIL!!!
   def add_images(model_obj, image_dir)
-    #byebug
+    byebug
     return unless image_dir
     
-    tempfile = Down.download(image_dir)
-    model_obj.images << Spree::Image.create(attachment: tempfile)
+    #tempfile = Down.download(image_dir)
+    
+    image = File.open("../../spec/dummy/public/pexels-photo-823841.jpeg", 'rb')
+    img = Spree::Image.create(:attachment => image, :viewable => model_obj)
+    img.save
+    #model_obj.images << img if img.save
+    
+    #image = Spree::Image.create!({:attachment => open("../../spec/dummy/public/pexels-photo-823841.jpeg").read, :viewable => model_obj})#, :without_protection => true})
+    #model_obj.images << image
+    #model_obj.master.images.create!(attachment: image(file))
+    #image = model_obj.images.new
+    #image.attachment = open("../../spec/dummy/public/pexels-photo-823841.jpeg")
+    #image.attachment.attach(open("../../spec/dummy/public/pexels-photo-823841.jpeg"))
+    #image.save!
     
     #load_images(image_dir).each do |image_file|
     #  model_obj.images << Spree::Image.create(attachment: File.new("#{ image_dir }/#{ image_file }", 'r'))
