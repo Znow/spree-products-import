@@ -5,6 +5,7 @@ class Spree::ProductImport < ActiveRecord::Base
 
   # CONSTANTS
   # IMPORTABLE_PRODUCT_FIELDS = [:slug, :name, :price, :cost_price, :available_on, :shipping_category, :tax_category, :taxons, :option_types, :description].to_set
+  # Maybe just get headers from CSV files
   IMPORTABLE_PRODUCT_FIELDS = ["EAN", "ItemUnit", "Nettopris", "Bruttopris", "LangProduktBeskrivelse", "ProduktGruppe", "ProduktID", 
                                "Varetekst1", "Varetekst2", "Synonyms", "ProduktGruppeTekst", "Weight", "SupName", "SupplierURL", 
                                "ProductURL", "PakkeAntal", "Billede", "Kategori1", "Kategori2", "Kategori3", "Kategori4", 
@@ -54,7 +55,7 @@ class Spree::ProductImport < ActiveRecord::Base
         product = create_or_update_product(product_data_row)
         set_missing_product_properties(product, product_data_row)
         add_taxons(product, product_data_row)
-        #add_images(product, product_data_row["Billede"])
+        add_images(product, product_data_row["Billede"])
       end
     rescue Exception
       false
@@ -104,12 +105,10 @@ class Spree::ProductImport < ActiveRecord::Base
   end
   
   def set_missing_product_properties(product, product_data_row)
-    byebug
     product_data_row.each do |key, value|
       case key
       # Product Properties in correct order from CSV
       when "ItemUnit"
-        byebug
         property = Spree::Property.find_or_create_by!(name: "item_unit", presentation: "Item Unit")
         product_property = Spree::ProductProperty.find_or_create_by!(value: value, product: product, property: property)
       when "SupplierURL"
@@ -150,39 +149,11 @@ class Spree::ProductImport < ActiveRecord::Base
     end
   end
 
-  ##### KOMMET HER TIL!!!
-  def add_images(model_obj, image_dir)
-    byebug
+  def add_images(product, image_dir)
     return unless image_dir
     
-    #tempfile = Down.download(image_dir)
-    
-    image = File.open("../../spec/dummy/public/pexels-photo-823841.jpeg", 'rb')
-    img = Spree::Image.create(:attachment => image, :viewable => model_obj)
-    img.save
-    #model_obj.images << img if img.save
-    
-    #image = Spree::Image.create!({:attachment => open("../../spec/dummy/public/pexels-photo-823841.jpeg").read, :viewable => model_obj})#, :without_protection => true})
-    #model_obj.images << image
-    #model_obj.master.images.create!(attachment: image(file))
-    #image = model_obj.images.new
-    #image.attachment = open("../../spec/dummy/public/pexels-photo-823841.jpeg")
-    #image.attachment.attach(open("../../spec/dummy/public/pexels-photo-823841.jpeg"))
-    #image.save!
-    
-    #load_images(image_dir).each do |image_file|
-    #  model_obj.images << Spree::Image.create(attachment: File.new("#{ image_dir }/#{ image_file }", 'r'))
-    #end
+    tempfile = Down.download(image_dir)
+    image = Spree::Image.create!(attachment: { io: tempfile, filename: tempfile.original_filename })
+    product.images << image
   end
-
-  # def load_images(image_dir)
-  #   if Dir.exists?(image_dir)
-  #     Dir.open(image_dir).entries.select do |entry|
-  #       IMAGE_EXTENSIONS.include? File.extname(entry).downcase
-  #     end
-  #   else
-  #     raise 'Image directory not found'
-  #   end
-  # end
-
 end
