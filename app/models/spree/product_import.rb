@@ -131,7 +131,7 @@ class Spree::ProductImport < ActiveRecord::Base
   end
 
   def add_taxons(product, product_data_row)
-    byebug
+    #byebug
     first_level = Spree::Taxon.find_by(name: product_data_row["Kategori1"])
     second_level = first_level.children.find_by(name: product_data_row["Kategori2"])
     third_level = second_level.children.find_by(name: product_data_row["Kategori3"])
